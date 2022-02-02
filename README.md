@@ -13,7 +13,7 @@ This repo will be made public before the start of the contest. (C4 delete this l
 
 sloc : 41
 
-This contract holds the rewards that has to go to Convex lp stakers.
+This contract holds the rewards that has to go to Convex LP stakers.
 
 80 % of all rewards will be pushed to stakers and user can claim tokens here.
 
@@ -23,37 +23,37 @@ sloc : 293
 
 Convex wrapper forked from [convex](https://github.com/convex-eth/platform/blob/main/contracts/contracts/wrappers/ConvexStakingWrapper.sol)
 
-modified logic is, it is no longer a ERC20, and it will hold all convex lps in one contract.
+Modified logic is, it is no longer a ERC20, and it will hold all Convex LPs in one contract.
 
-convex lp holers will stake to this contract all rewards from convex will be available in ConcurRewardPool
+Convex LP holders will stake to this contract all rewards from Convex will be available in ConcurRewardPool.
 
-When user deposits/withdraws lp, it will be notified to MasterChef
+When user deposits/withdraws LP, it will be notified to MasterChef.
 
-this relies heavily on convex lp contracts and curve pool contract
+This relies heavily on convex LP contracts and Curve pool contract.
 
 ### EasySign & VoteProxy
 
 sloc : VoteProxy = 36, EasySign = 223
 
-vote proxy to enable contract signing with eip 1271
+Vote proxy to enable contract signing with EIP-1271.
 
 ### MasterChef
 
 sloc : 212
 
-MasterChef **without** actual stake token transfers. it is used to distribute governance token without minting/depositing. tokens will be pre deposited before the `_startBlock`. Depositor role wil lbe assinged to ConvexStakingWrapper and StakingRewards contract
+MasterChef **without** actual stake token transfers. It is used to distribute governance token without minting/depositing. Tokens will be pre-deposited before the `_startBlock`. Depositor role will be assinged to ConvexStakingWrapper and StakingRewards contract.
 
 ### Shelter
 
 sloc : 59
 
-Shlter for tokens when emergency happens
+Shelter for tokens when emergency happens.
 
 ### StakingRewards
 
 sloc : 220
 
-Single token reward contract. will be used to give reward to governance token stakers with non governance token(CRV/CVX).
+Single token reward contract. Will be used to give reward to governance token stakers with non-governance token (CRV/CVX).
 
 ### USDMPegRecovery
 
