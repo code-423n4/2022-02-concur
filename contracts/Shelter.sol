@@ -16,7 +16,7 @@ contract Shelter is IShelter {
 
     mapping(IERC20 => mapping(address => bool)) public override claimed;
 
-    mapping(IERC20 => uint256) public activated;
+    mapping(IERC20 => uint256) public override activated;
 
     mapping(IERC20 => uint256) public savedTokens;
 

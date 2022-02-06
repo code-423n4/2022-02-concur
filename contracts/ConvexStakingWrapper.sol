@@ -9,9 +9,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./external/ConvexInterfaces.sol";
 import "./interfaces/IConcurRewardClaim.sol";
+import "./interfaces/IShelterClient.sol";
+import "./interfaces/IShelter.sol";
 import "./MasterChef.sol";
 
-contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
+contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable, IShelterClient {
     using SafeERC20 for IERC20;
 
     struct RewardType {
@@ -44,9 +46,11 @@ contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(uint256 => mapping(address => Reward)))
         public userReward;
     mapping(uint256 => mapping(address => uint256)) public registeredRewards;
+    mapping(IERC20 => uint256) public amountInShelter;
 
     //management
     address public treasury;
+    IShelter public shelter;
     IConcurRewardClaim public claimContract;
 
     struct Deposit {
@@ -66,9 +70,22 @@ contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
     event Deposited(address indexed _user, uint256 _amount);
     event Withdrawn(address indexed _user, uint256 _amount);
 
+    modifier whenNotInShelter(uint256 _pid) {
+        IERC20 lpToken = IERC20(
+            IRewardStaking(convexPool[_pid]).poolInfo(_pid).lptoken
+        );
+        require(shelter.activated(lpToken) == 0, "shelter activated");
+        _;
+    }
+
     constructor(address _treasury, MasterChef _masterChef) {
         treasury = _treasury;
         masterChef = _masterChef;
+    }
+
+    function setShelter(IShelter _shelter) external onlyOwner {
+        require(address(shelter) == address(0), "shelter cannot be changed");
+        shelter = _shelter;
     }
 
     function pause() external onlyOwner {
@@ -85,6 +102,41 @@ contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
 
     function setRewardPool(address _claimContract) external onlyOwner {
         claimContract = IConcurRewardClaim(_claimContract);
+    }
+
+    function enterShelter(uint256[] calldata _pids) external onlyOwner {
+        for(uint256 i = 0; i<_pids.length; i++){
+            IRewardStaking pool = IRewardStaking(convexPool[_pids[i]]);
+            uint256 amount = pool.balanceOf(address(this));
+            pool.withdrawAndUnwrap(amount, false);
+            IERC20 lpToken = IERC20(
+                pool.poolInfo(_pids[i]).lptoken
+            );
+            amountInShelter[lpToken] = amount;
+            lpToken.safeTransfer(address(shelter), amount);
+            shelter.activate(lpToken);
+        }
+    }
+
+    function exitShelter(uint256[] calldata _pids) external onlyOwner {
+        for(uint256 i = 0; i<_pids.length; i++){
+            IRewardStaking pool = IRewardStaking(convexPool[_pids[i]]);
+            IERC20 lpToken = IERC20(
+                pool.poolInfo(_pids[i]).lptoken
+            );
+            amountInShelter[lpToken] = 0;
+            shelter.deactivate(lpToken);
+        }
+    }
+
+    function totalShare(IERC20 _token) external view override returns(uint256) {
+        // this will be zero if shelter is not activated
+        return amountInShelter[_token];
+    }
+
+    function shareOf(IERC20 _token, address _user) external view override returns(uint256) {
+        uint256 pid = pids[address(_token)];
+        return uint256(deposits[pid][_user].amount);
     }
 
     /// @notice function to bootstrap the reward pool and extra rewards of convex booster
@@ -228,6 +280,7 @@ contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
     function deposit(uint256 _pid, uint256 _amount)
         external
         whenNotPaused
+        whenNotInShelter(_pid)
         nonReentrant
     {
         _checkpoint(_pid, msg.sender);
@@ -253,7 +306,11 @@ contract ConvexStakingWrapper is Ownable, ReentrancyGuard, Pausable {
     /// @dev should request withdraw before calling this function
     /// @param _pid pid to withdraw, uses same pid as convex booster
     /// @param _amount amount to withdraw
-    function withdraw(uint256 _pid, uint256 _amount) external nonReentrant {
+    function withdraw(uint256 _pid, uint256 _amount)
+        external
+        nonReentrant
+        whenNotInShelter(_pid)
+    {
         WithdrawRequest memory request = withdrawRequest[_pid][msg.sender];
         require(request.epoch < currentEpoch() && deposits[_pid][msg.sender].epoch + 1 < currentEpoch(), "wait");
         require(request.amount >= _amount, "too much");

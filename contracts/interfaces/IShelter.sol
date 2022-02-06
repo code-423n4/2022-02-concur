@@ -14,4 +14,5 @@ interface IShelter {
     function activate(IERC20 _token) external;
     function deactivate(IERC20 _token) external;
     function withdraw(IERC20 _token, address _to) external;
+    function activated(IERC20 _token) external view returns(uint256);
 }
